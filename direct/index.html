@@ -26,7 +26,7 @@
     -webkit-font-smoothing:antialiased;
     padding:0 0 128px;
   }
-  .wrap{max-width:1120px;margin:0 auto;padding:0 24px}
+  .wrap{max-width:1320px;margin:0 auto;padding:0 24px}
 
   /* ── Шапка-паспорт ── */
   .masthead{
@@ -187,7 +187,7 @@
     position:fixed;left:0;right:0;bottom:0;z-index:20;
     background:var(--ink);color:#fff;border-top:2px solid var(--accent);
   }
-  .readout-inner{max-width:1120px;margin:0 auto;padding:14px 24px;display:flex;gap:28px;align-items:center;flex-wrap:wrap}
+  .readout-inner{max-width:1320px;margin:0 auto;padding:14px 24px;display:flex;gap:28px;align-items:center;flex-wrap:wrap}
   .ro-scale{flex:none;display:flex;gap:2px;align-items:flex-end;height:26px}
   .ro-scale i{width:2px;background:rgba(255,255,255,.28);display:block}
   .ro-block{display:flex;flex-direction:column;line-height:1.15}
@@ -230,13 +230,16 @@
   .rk-caption h2{font-family:var(--serif);font-size:21px;font-weight:600;letter-spacing:-.01em;margin:0}
   .rk-caption p{color:var(--muted);font-size:11.5px;max-width:70ch;margin:7px 0 0;line-height:1.55}
   .rk-scroll{overflow-x:auto;background:var(--sheet);border:1px solid var(--line-2)}
-  .rk-sheet{min-width:960px}
-  .grid.rk{grid-template-columns:minmax(170px,1.3fr) 120px minmax(130px,1fr) minmax(150px,1fr) 48px 74px 130px 108px 34px}
+  .rk-sheet{min-width:700px}
+  .grid.rk{grid-template-columns:minmax(0,1.5fr) minmax(0,0.95fr) minmax(0,1.15fr) minmax(0,1.25fr) 42px 58px 116px 96px 30px}
   .rk.col-head{position:sticky;top:0;z-index:2;background:var(--ink);color:#fff}
   .rk.col-head .cell{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#cdd6d3;padding:11px 10px;border:none}
   .rk.col-head .cell.num{justify-content:flex-end}
   .rk.col-head .cell.mid{justify-content:center}
-  .grid.rk .cell{align-items:center}
+  .grid.rk .cell{align-items:flex-start}
+  .rk-ta{width:100%;display:block;background:transparent;border:0;padding:2px 0;border-bottom:1px solid transparent;font-family:var(--mono);font-size:13px;color:var(--ink);line-height:1.4;resize:none;overflow:hidden;min-height:19px;white-space:pre-wrap;overflow-wrap:anywhere}
+  .rk-ta:hover{border-bottom-color:var(--line)}
+  .rk-ta:focus{outline:none;border-bottom-color:var(--accent)}
   .rk-row:hover{background:#F1F5F4}
   .rk-pct{font-variant-numeric:tabular-nums;font-weight:600}
   .rk-net{font-variant-numeric:tabular-nums;color:var(--muted)}
@@ -806,17 +809,18 @@ const rkBody = document.getElementById("rk-body");
 const adBudget = () => rk.reduce((a,r)=>a+(Number(r.budget)||0),0);
 const adBudgetNet = () => rk.reduce((a,r)=>a+Math.round((Number(r.budget)||0)*NET_K),0);
 const rkPct = b => { const t=adBudget(); return t>0 ? Math.round((Number(b)||0)/t*100) : 0; };
+function autoGrow(el){ el.style.height="auto"; el.style.height=(el.scrollHeight)+"px"; }
 
 function renderRK(){
   let html = "";
   rk.forEach(r=>{
     const b = Number(r.budget)||0;
     html += `<div class="grid rk rk-row" data-rk="${r.id}">
-      <div class="cell"><input class="name-in" data-rkstrat="${r.id}" value="${esc(r.strat)}"></div>
-      <div class="cell"><input class="name-in" data-rktype="${r.id}" value="${esc(r.type)}"></div>
-      <div class="cell"><input class="name-in" data-rknote="${r.id}" value="${esc(r.note)}"></div>
-      <div class="cell"><input class="name-in" data-rksite="${r.id}" value="${esc(r.site)}"></div>
-      <div class="cell mid"><input class="name-in" style="text-align:center" data-rkgeo="${r.id}" value="${esc(r.geo)}"></div>
+      <div class="cell"><textarea rows="1" class="rk-ta" data-rkstrat="${r.id}">${esc(r.strat)}</textarea></div>
+      <div class="cell"><textarea rows="1" class="rk-ta" data-rktype="${r.id}">${esc(r.type)}</textarea></div>
+      <div class="cell"><textarea rows="1" class="rk-ta" data-rknote="${r.id}">${esc(r.note)}</textarea></div>
+      <div class="cell"><textarea rows="1" class="rk-ta" data-rksite="${r.id}">${esc(r.site)}</textarea></div>
+      <div class="cell mid"><textarea rows="1" class="rk-ta" style="text-align:center" data-rkgeo="${r.id}">${esc(r.geo)}</textarea></div>
       <div class="cell mid rk-pct" data-rkpct="${r.id}">${rkPct(b)}%</div>
       <div class="cell num"><input type="number" class="num-in" data-rkbud="${r.id}" value="${b}" min="0" step="1000"></div>
       <div class="cell num rk-net" data-rknet="${r.id}">${fmtRub(Math.round(b*NET_K))}</div>
@@ -844,6 +848,7 @@ function renderRK(){
     <div class="cell"></div>
   </div>`;
   rkBody.innerHTML = html;
+  rkBody.querySelectorAll(".rk-ta").forEach(autoGrow);
 }
 
 function updateRKCells(){
@@ -868,7 +873,7 @@ rkBody.addEventListener("input", e=>{
   const ds = e.target.dataset;
   if(ds.rkbud!=null){ const r=rk.find(x=>x.id===ds.rkbud); if(r){ r.budget=e.target.value===""?0:Math.max(0,Number(e.target.value)); updateRKCells(); } return; }
   for(const k of ["strat","type","note","site","geo"]){
-    if(ds["rk"+k]!=null){ const r=rk.find(x=>x.id===ds["rk"+k]); if(r) r[k]=e.target.value; return; }
+    if(ds["rk"+k]!=null){ const r=rk.find(x=>x.id===ds["rk"+k]); if(r) r[k]=e.target.value; autoGrow(e.target); return; }
   }
 });
 rkBody.addEventListener("click", e=>{
