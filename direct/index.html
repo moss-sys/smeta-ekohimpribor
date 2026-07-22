@@ -224,6 +224,29 @@
     .ro-scale{display:none}
   }
   @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+  /* ── Структура рекламных кампаний ── */
+  .rk-caption{padding:30px 0 12px}
+  .rk-caption h2{font-family:var(--serif);font-size:21px;font-weight:600;letter-spacing:-.01em;margin:0}
+  .rk-caption p{color:var(--muted);font-size:11.5px;max-width:70ch;margin:7px 0 0;line-height:1.55}
+  .rk-scroll{overflow-x:auto;background:var(--sheet);border:1px solid var(--line-2)}
+  .rk-sheet{min-width:960px}
+  .grid.rk{grid-template-columns:minmax(170px,1.3fr) 120px minmax(130px,1fr) minmax(150px,1fr) 48px 74px 130px 108px 34px}
+  .rk.col-head{position:sticky;top:0;z-index:2;background:var(--ink);color:#fff}
+  .rk.col-head .cell{font-size:10px;letter-spacing:.07em;text-transform:uppercase;color:#cdd6d3;padding:11px 10px;border:none}
+  .rk.col-head .cell.num{justify-content:flex-end}
+  .rk.col-head .cell.mid{justify-content:center}
+  .grid.rk .cell{align-items:center}
+  .rk-row:hover{background:#F1F5F4}
+  .rk-pct{font-variant-numeric:tabular-nums;font-weight:600}
+  .rk-net{font-variant-numeric:tabular-nums;color:var(--muted)}
+  .grid.rk-sum .cell{border-top:1px solid var(--line-2);padding-top:11px;padding-bottom:11px}
+  .rk-sumlabel{font-weight:700;text-transform:uppercase;letter-spacing:.04em;font-size:11px}
+  .rk-sumval{font-weight:700;font-variant-numeric:tabular-nums;justify-content:flex-end}
+  .rk-sumnet{font-weight:700;color:var(--muted);font-variant-numeric:tabular-nums;justify-content:flex-end}
+  .rk-final .cell{border-top:2px solid var(--ink);border-bottom:2px solid var(--ink);padding-top:13px;padding-bottom:13px}
+  .rk-final .rk-sumlabel{font-size:12.5px}
+  .rk-final .rk-sumval{color:var(--accent-deep);font-size:16px}
 </style>
 
 <div class="wrap">
@@ -268,6 +291,27 @@
     </div>
   </div>
 
+  <div class="rk-caption">
+    <h2>Структура рекламных кампаний</h2>
+    <p>Распределение месячного рекламного бюджета. Правьте бюджет прямо в ячейках — доли, столбец «без НДС» (справочно) и итог пересчитываются вживую. Строка <b>«Итоговая стоимость»</b> = стоимость работ из сметы выше плюс бюджет в рекламный кабинет.</p>
+  </div>
+  <div class="rk-scroll">
+    <div class="rk-sheet">
+      <div class="grid rk col-head" role="row">
+        <div class="cell">Тип стратегии</div>
+        <div class="cell">Тип РК</div>
+        <div class="cell">Уточнение РК</div>
+        <div class="cell">Сайт</div>
+        <div class="cell mid">ГЕО</div>
+        <div class="cell mid">% бюджета</div>
+        <div class="cell num">Бюджет/мес с НДС</div>
+        <div class="cell num">Без НДС</div>
+        <div class="cell"></div>
+      </div>
+      <div id="rk-body"></div>
+    </div>
+  </div>
+
 </div>
 
 <div class="readout">
@@ -278,7 +322,7 @@
       <span class="ro-v"><span id="out-hours">0</span> <span class="ro-cur">ч</span></span>
     </div>
     <div class="ro-block ro-total">
-      <span class="ro-k">Итого к оплате</span>
+      <span class="ro-k">Итоговая стоимость</span>
       <span class="ro-v"><b id="out-total">0</b><span class="ro-cur">₽</span></span>
     </div>
     <div class="ro-spacer"></div>
@@ -405,7 +449,7 @@ function render(){
   let html = "";
   const totalRowHtml = `<div class="grid total-row">
       <div class="cell"></div>
-      <div class="cell total-label">Итого к оплате</div>
+      <div class="cell total-label">Итого по работам</div>
       <div class="cell total-hours" id="tot-hours">${fmtInt(grandHours())}</div>
       <div class="cell"></div>
       <div class="cell total-sum" id="tot-sum">${fmtRub(grandSum())}</div>
@@ -486,6 +530,7 @@ function updateTotals(){
   const th = document.getElementById("tot-hours"); if(th) th.textContent = fmtInt(grandHours());
   const ts = document.getElementById("tot-sum"); if(ts) ts.textContent = fmtRub(grandSum());
   drawScale();
+  if(typeof syncCombined==="function") syncCombined();
 }
 
 /* декоративная «шкала» показаний — высота столбиков от долей разделов */
@@ -561,7 +606,8 @@ document.getElementById("reset").addEventListener("click", ()=>{
   if(confirm("Вернуть смету к исходному виду? Все изменения будут потеряны.")){
     uid=1; state=buildState(RAW); META.title=DEFAULT_TITLE;
     if(typeof titleEl!=="undefined") titleEl.textContent=META.title;
-    render();
+    rk=RK_DEFAULT.map(x=>({id:nid(), ...x}));
+    render(); renderRK(); syncCombined();
   }
 });
 
@@ -664,6 +710,20 @@ function buildSheetData(){
     });
   });
 
+  // ── Структура рекламных кампаний ──
+  push([null,null,null,null,null]);
+  push([T("Структура рекламных кампаний",S.SECT),null,null,null,null]);
+  push([T("№",S.HEAD),T("Кампания (стратегия · тип · уточнение · сайт)",S.HEAD),T("ГЕО",S.HEAD),T("Доля бюджета",S.HEAD),T("Бюджет/мес с НДС, руб.",S.HEAD)]);
+  rk.forEach((r,i)=>{
+    const b=Number(r.budget)||0;
+    const desc = r.strat+" · "+r.type+" · "+r.note+" · "+r.site;
+    push([N(i+1,S.NUMC),T(desc,S.TEXT),T(r.geo,S.NUMC),T(rkPct(b)+"%",S.NUMC),N(b,S.CUR)]);
+  });
+  const _budget=adBudget();
+  push([T("Бюджет в рекламный кабинет с НДС",S.SECT),null,null,T("100%",S.SECN),N(_budget,S.SECCUR)]);
+  push([T("Стоимость работ",S.SECT),null,null,null,N(grandSum(),S.SECCUR)]);
+  push([T("Итоговая стоимость",S.TOTL),null,null,null,N(grandSum()+_budget,S.TOTCUR)]);
+
   // XML
   let xml="";
   rows.forEach((cells,ri)=>{
@@ -732,5 +792,97 @@ titleEl.textContent = META.title;
 titleEl.addEventListener("input", ()=>{ META.title = titleEl.textContent.replace(/\s+/g," ").trim(); });
 titleEl.addEventListener("keydown", e=>{ if(e.key==="Enter"){ e.preventDefault(); titleEl.blur(); } });
 
+/* ======================= СТРУКТУРА РЕКЛАМНЫХ КАМПАНИЙ ======================= */
+const RK_DEFAULT = [
+  {strat:"Максимум конверсий с оплатой за клики",    type:"Поиск (ЕПК)",             note:"Общие запросы (расходометры)", site:"https://prompribor-kaluga.ru", geo:"РФ", budget:70000},
+  {strat:"Максимум конверсий с оплатой за клики",    type:"Поиск (ЕПК)",             note:"Расходометры ВПС",             site:"https://vps-kaluga.ru",       geo:"РФ", budget:70000},
+  {strat:"Максимум конверсий с оплатой за конверсии", type:"РСЯ (ЕПК)",               note:"Запросы",                      site:"https://prompribor-kaluga.ru", geo:"РФ", budget:40000},
+  {strat:"Максимум конверсий с оплатой за конверсии", type:"РСЯ - ретаргетинг (ЕПК)", note:"Сегменты аудиторий",           site:"https://prompribor-kaluga.ru", geo:"РФ", budget:25000},
+];
+const NET_K = 0.85365; // коэффициент «без НДС» (справочно, из исходной таблицы)
+let rk = RK_DEFAULT.map(x=>({id:nid(), ...x}));
+
+const rkBody = document.getElementById("rk-body");
+const adBudget = () => rk.reduce((a,r)=>a+(Number(r.budget)||0),0);
+const adBudgetNet = () => rk.reduce((a,r)=>a+Math.round((Number(r.budget)||0)*NET_K),0);
+const rkPct = b => { const t=adBudget(); return t>0 ? Math.round((Number(b)||0)/t*100) : 0; };
+
+function renderRK(){
+  let html = "";
+  rk.forEach(r=>{
+    const b = Number(r.budget)||0;
+    html += `<div class="grid rk rk-row" data-rk="${r.id}">
+      <div class="cell"><input class="name-in" data-rkstrat="${r.id}" value="${esc(r.strat)}"></div>
+      <div class="cell"><input class="name-in" data-rktype="${r.id}" value="${esc(r.type)}"></div>
+      <div class="cell"><input class="name-in" data-rknote="${r.id}" value="${esc(r.note)}"></div>
+      <div class="cell"><input class="name-in" data-rksite="${r.id}" value="${esc(r.site)}"></div>
+      <div class="cell mid"><input class="name-in" style="text-align:center" data-rkgeo="${r.id}" value="${esc(r.geo)}"></div>
+      <div class="cell mid rk-pct" data-rkpct="${r.id}">${rkPct(b)}%</div>
+      <div class="cell num"><input type="number" class="num-in" data-rkbud="${r.id}" value="${b}" min="0" step="1000"></div>
+      <div class="cell num rk-net" data-rknet="${r.id}">${fmtRub(Math.round(b*NET_K))}</div>
+      <div class="cell mid"><button class="del" data-rkdel="${r.id}" title="Удалить" aria-label="Удалить кампанию">×</button></div>
+    </div>`;
+  });
+  html += `<button class="addrow" id="rk-add">+ добавить рекламную кампанию</button>`;
+  html += `<div class="grid rk rk-sum">
+    <div class="cell rk-sumlabel" style="grid-column:1 / 6">Бюджет в рекламный кабинет с НДС</div>
+    <div class="cell mid rk-pct">100%</div>
+    <div class="cell num rk-sumval" id="rk-budget">${fmtRub(adBudget())}</div>
+    <div class="cell num rk-sumnet" id="rk-budget-net">${fmtRub(adBudgetNet())}</div>
+    <div class="cell"></div>
+  </div>`;
+  html += `<div class="grid rk rk-sum">
+    <div class="cell rk-sumlabel" style="grid-column:1 / 7">Стоимость работ</div>
+    <div class="cell num rk-sumval" id="rk-works">${fmtRub(grandSum())}</div>
+    <div class="cell"></div>
+    <div class="cell"></div>
+  </div>`;
+  html += `<div class="grid rk rk-sum rk-final">
+    <div class="cell rk-sumlabel" style="grid-column:1 / 7">Итоговая стоимость</div>
+    <div class="cell num rk-sumval" id="rk-final">${fmtRub(grandSum()+adBudget())}</div>
+    <div class="cell"></div>
+    <div class="cell"></div>
+  </div>`;
+  rkBody.innerHTML = html;
+}
+
+function updateRKCells(){
+  rk.forEach(r=>{
+    const b = Number(r.budget)||0;
+    const p = rkBody.querySelector(`[data-rkpct="${r.id}"]`); if(p) p.textContent = rkPct(b)+"%";
+    const n = rkBody.querySelector(`[data-rknet="${r.id}"]`); if(n) n.textContent = fmtRub(Math.round(b*NET_K));
+  });
+  const bn = document.getElementById("rk-budget-net"); if(bn) bn.textContent = fmtRub(adBudgetNet());
+  syncCombined();
+}
+
+function syncCombined(){
+  const works = grandSum(), budget = adBudget();
+  const b = document.getElementById("rk-budget");  if(b) b.textContent = fmtRub(budget);
+  const w = document.getElementById("rk-works");   if(w) w.textContent = fmtRub(works);
+  const f = document.getElementById("rk-final");   if(f) f.textContent = fmtRub(works+budget);
+  const ot = document.getElementById("out-total"); if(ot) ot.textContent = fmtInt(works+budget);
+}
+
+rkBody.addEventListener("input", e=>{
+  const ds = e.target.dataset;
+  if(ds.rkbud!=null){ const r=rk.find(x=>x.id===ds.rkbud); if(r){ r.budget=e.target.value===""?0:Math.max(0,Number(e.target.value)); updateRKCells(); } return; }
+  for(const k of ["strat","type","note","site","geo"]){
+    if(ds["rk"+k]!=null){ const r=rk.find(x=>x.id===ds["rk"+k]); if(r) r[k]=e.target.value; return; }
+  }
+});
+rkBody.addEventListener("click", e=>{
+  const btn=e.target.closest("button"); if(!btn) return;
+  if(btn.dataset.rkdel!=null){ rk=rk.filter(x=>x.id!==btn.dataset.rkdel); renderRK(); syncCombined(); return; }
+  if(btn.id==="rk-add"){
+    rk.push({id:nid(),strat:"Новая кампания",type:"Поиск (ЕПК)",note:"",site:"https://",geo:"РФ",budget:0});
+    renderRK(); syncCombined();
+    const el=rkBody.querySelector(`[data-rkstrat="${rk[rk.length-1].id}"]`); if(el){ el.focus(); el.select(); }
+  }
+});
+
+renderRK();
+
 render();
+syncCombined();
 </script>
